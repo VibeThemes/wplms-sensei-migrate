@@ -128,21 +128,156 @@ class WPLMS_SENSEI_INIT{
             _e('Security check Failed. Contact Administrator.','vibe');
             die();
         }
-
-        global $wpdb;
+        $this->course_id = $_POST['id'];
+        //Connect taxonomy
         $this->migrate_course_settings($_POST['id']);
+        $this->migrate_course_curriculum($_POST['id']);
+
     }
 
     function migrate_posts(){
         global $wpdb;
+        //Track all ids
         $wpdb->query("UPDATE {$wpdb->posts} SET post_type = 'unit' WHERE post_type = 'lesson'");
     }
 
     function migrate_course_settings($course_id){
-        //Course Settings
-        // Course Curriclum- Unit connection (user status), Quiz connection - Question connection, Module connection
-        // Pricing connection
+        update_post_meta($course_id,'vibe_duration',9999);
 
+        $pre_course = get_post_meta($course_id,'_course_prerequisite',true);
+        if(!empty($pre_course)){
+            update_post_meta($course_id,'vibe_pre_course',$pre_course);
+        }
+
+        $connected_product = get_post_meta($course_id,'_course_woocommerce_product',true);
+        if(!empty($connected_product)){
+            update_post_meta($course_id,'vibe_product',$connected_product);
+        }
+
+    }
+
+    function migrate_course_curriculum($course_id){
+        // Course Curriclum- Unit connection (user status), Quiz connection - Question connection, Module connection
+        $this->curriculum=array();
+        //1. Get all the connected modules
+        $modules = wp_get_post_terms($course_id,'module');
+        if(empty($modules) || is_wp_error($modules))
+            return;
+
+        $modules_with_order = array(); // array('2'=>'name','3'=>'name2');
+        foreach($modules as $module){
+            $modules_with_order[$module->term_id] = $module->name;
+        }
+
+        //Logic for sorting in custom order
+        $module_order = get_post_meta($course_id,'_module_order',true); // array('3','2');
+        if(!empty($module_order)){
+            $temp = array();
+            foreach (array_values($module_order) as $key) {
+                $temp[$key] = $modules_with_order[$key] ;
+            }
+            $modules_with_order = $temp;
+        }
+
+        //With custom order
+        foreach($modules_with_order as $module_id=>$module_name){
+            $this->curriculum[]=$module_name;
+            $this->get_module_units($module_id);
+        }
+    }
+
+    function get_module_units($module_id){
+        $args = array(
+            'post_type'=>'unit',
+            'posts_per_page'=>9999,
+            'orderby'=>'meta_value_num',
+            'order' => 'ASC',
+            'meta_key'=>'_order_module_'.$module_id,
+            'tax_query' => array(
+                                array(
+                                'taxonomy' => 'module',
+                                'field' =>'term_id',
+                                'terms' => $module_id,
+                                )
+                            )
+            );
+
+        $the_query = new WP_Query($args);
+        if($the_query->have_posts()){
+            while($the_query->have_posts()){
+                $the_query->the_post();
+                global $post;
+                if($this->course_id == get_post_meta($post->ID,'_lesson_course',true)){
+                    $this->curriculum[]=$post->ID;
+                    //Migrate Unit settings
+                    $this->migrate_unit_settings($post->ID);
+
+                    $check_quiz = get_post_meta($post->ID,'_lesson_quiz',true);
+                    //Quiz check.
+                    if(!empty($check_quiz)){
+                        if(get_post_type($check_quiz) == 'quiz'){
+                            $this->curriculum[] = $check_quiz;
+                            //Migrate quiz settings
+                            $this->migrate_quiz_settings($check_quiz);
+                            $this->migrate_quiz_questions($check_quiz);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function migrate_unit_settings($unit_id){
+        $unit_duration = get_post_meta($unit_id,'_lesson_length',true);
+        if(!empty($unit_duration)){
+            update_post_meta($unit_id,'vibe_duration',$unit_duration);
+        }
+    }
+
+    function migrate_quiz_settings($quiz_id){
+        update_post_meta($quiz_id,'vibe_quiz_course',$this->course_id);
+        update_post_meta($quiz_id,'vibe_duration',9999);
+
+        $quiz_pass = get_post_meta($quiz_id,'_pass_required',true);
+        if(!empty($quiz_pass) && $quiz_pass == 'on'){
+            $quiz_pass_marks = get_post_meta($quiz_id,'_quiz_passmark',true);
+            if(!empty($quiz_pass_marks)){
+                update_post_meta($quiz_id,'vibe_quiz_passing_score',$quiz_pass_marks);
+            }
+        }
+
+        $auto_evaluate = get_post_meta($quiz_id,'_quiz_grade_type',true);
+        if(!empty($auto_evaluate) && $auto_evaluate == 'auto'){
+            update_post_meta($quiz_id,'vibe_quiz_auto_evaluate','S');
+        }
+
+        $quiz_retake = get_post_meta($quiz_id,'_enable_quiz_reset',true);
+        if(!empty($quiz_retake) && $quiz_retake == 'on'){
+            update_post_meta($quiz_id,'vibe_quiz_retakes',1);
+        }
+
+        $random_question = get_post_meta($quiz_id,'_random_question_order',true);
+        if(!empty($random_question) && $random_question == 'yes'){
+            update_post_meta($quiz_id,'vibe_quiz_random','S');
+        }
+    }
+
+    function migrate_quiz_questions($quiz_id){
+// Get type of question from question-type taxonomy.
+        global $wpdb;
+        $questions = $wpdb->get_results("SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_quiz_id' AND meta_value = $quiz_id");
+
+        $quiz_questions = array('ques'=>array(),'marks'=>array());
+        if(!empty($questions)){
+            foreach($questions as $question){
+                $quiz_questions['ques'][] = $question->post_id;
+                $question_marks = get_post_meta($question->post_id,'_question_grade',ture);
+                if(!empty($question_marks)){
+                    $quiz_questions['marks'][] = $question_marks;
+                }
+            }
+            update_post_meta($quiz_id,'vibe_quiz_questions',$quiz_questions);
+        }
     }
 }
 
