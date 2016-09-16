@@ -22,17 +22,28 @@ class WPLMS_SENSEI_INIT{
     }
 
     private function __construct(){
-    	if ( in_array( 'woothemes-sensei/woothemes-sensei.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) || (function_exists('is_plugin_active') && is_plugin_active( 'woothemes-sensei/woothemes-sensei.php'))) {
-			add_action( 'admin_notices',array($this,'migration_notice' ));
+    	if ( in_array( 'vibe-customtypes/vibe-customtypes.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) || (function_exists('is_plugin_active') && is_plugin_active( 'vibe-customtypes/vibe-customtypes.php'))) {
+			add_action( 'admin_notices',array($this,'deactivate_vibe_customtypes_plugin' ));
+		}else{
+            add_action( 'admin_notices',array($this,'migration_notice' ));
             add_action('wp_ajax_migration_woo_sensei_courses',array($this,'migration_woo_sensei_courses'));
             add_action('wp_ajax_migration_woo_sensei_course_to_wplms',array($this,'migration_woo_sensei_course_to_wplms'));
-		}    	
+        }	
     }
+    function deactivate_vibe_customtypes_plugin(){
+        ?>
+        <div id="deactivate_vibe_customtypes" class="error notice">
+            <p><?php printf( __('Please deactivate your vibe-customtypes plugin to begin the migration %s Go to Plugins Page %s', 'wplms-sm' ),'<a id="vibe_plugins_page" class="button primary" href="'.home_url().'/wp-admin/plugins.php">','</a>'); ?>
+            </p>   
+        </div>
+        <?php
+    }
+
     function migration_notice(){
         $this->migration_status = get_option('wplms_sensei_migration');
         if(empty($this->migration_status)){
             ?>
-            <div id="migration_sensei_courses" class="error notice ">
+            <div id="migration_sensei_courses" class="error notice">
                <p id="sm_message"><?php printf( __('Migrate sensei courses to WPLMS %s Begin Migration Now %s', 'wplms-sm' ),'<a id="begin_wplms_sensei_migration" class="button primary">','</a>'); ?>
                </p>
                <?php wp_nonce_field('security','security'); ?>
@@ -188,19 +199,19 @@ class WPLMS_SENSEI_INIT{
 
     function get_module_units($module_id){
         $args = array(
-            'post_type'=>'unit',
-            'posts_per_page'=>9999,
-            'orderby'=>'meta_value_num',
-            'order' => 'ASC',
-            'meta_key'=>'_order_module_'.$module_id,
-            'tax_query' => array(
-                                array(
-                                'taxonomy' => 'module',
-                                'field' =>'term_id',
-                                'terms' => $module_id,
+                'post_type'=>'unit',
+                'posts_per_page'=>9999,
+                'orderby'=>'meta_value_num',
+                'order' => 'ASC',
+                'meta_key'=>'_order_module_'.$module_id,
+                'tax_query' => array(
+                                    array(
+                                    'taxonomy' => 'module',
+                                    'field' =>'term_id',
+                                    'terms' => $module_id,
+                                    )
                                 )
-                            )
-            );
+                );
 
         $the_query = new WP_Query($args);
         if($the_query->have_posts()){
@@ -274,6 +285,79 @@ class WPLMS_SENSEI_INIT{
                 $question_marks = get_post_meta($question->post_id,'_question_grade',ture);
                 if(!empty($question_marks)){
                     $quiz_questions['marks'][] = $question_marks;
+                }
+
+                $question_type = wp_get_post_terms($question->post_id,'question-type');
+                switch($question_type){
+                    case 'multiple-choice':
+                        $right_option = get_post_meta($question->post_id,'_question_right_answer',true);
+                        $wrong_option = get_post_meta($question->post_id,'_question_wrong_answers',true);
+                        if(!empty($right_option) && !empty($wrong_option)){
+                            $options = array_merge($right_option,$wrong_option);
+                            update_post_meta($question->post_id,'vibe_question_options',$options);
+                            
+                            $correct_answer = count($right_option);
+                            if($correct_answer == 1){
+                                update_post_meta($question->post_id,'vibe_question_type','single');
+                                update_post_meta($question->post_id,'vibe_question_answer',1);
+                            }elseif($correct_answer > 1){
+                                update_post_meta($question->post_id,'vibe_question_type','multiple');
+
+                            }
+                        }
+                        
+                        $question_explanation = get_post_meta($question->post_id,'_answer_feedback',true);
+                        if(!empty($question_explanation)){
+                            update_post_meta($question->post_id,'vibe_question_explaination',$question_explanation);
+                        }
+                    break;
+
+                    case 'gap-fill':
+                        update_post_meta($question->post_id,'vibe_question_type','fillblank');
+                        $fill_question = get_post_meta($question->post_id,'_question_right_answer',true);
+                        if(!empty($fill_question){
+                            preg_match("/\|\|(.+)\|\|/", $fill_question, $output_array);
+                            if(!empty($output_array)){
+                                $correct_answer = $output_array[1];
+                                if(!empty($correct_answer)){
+                                    update_post_meta($question->post_id,'vibe_question_answer',$correct_answer);
+                                }
+                            }
+                        }
+                        
+                    break;
+
+                    case 'boolean':
+                        update_post_meta($question->post_id,'vibe_question_type','truefalse');
+                        $correct_answer = get_post_meta($question->post_id,'_question_right_answer',true);
+                        if(!empty($correct_answer)){
+                            if($correct_answer == 'true'){
+                                update_post_meta($question->post_id,'vibe_question_answer',1);
+                            }else{
+                                update_post_meta($question->post_id,'vibe_question_answer',0);
+                            }
+                        }
+                        $question_explanation = get_post_meta($question->post_id,'_answer_feedback',true);
+                        if(!empty($question_explanation)){
+                            update_post_meta($question->post_id,'vibe_question_explaination',$question_explanation);
+                        }
+                    break;
+
+                    case 'single-line':
+                        update_post_meta($question->post_id,'vibe_question_type','smalltext');
+                        $correct_answer = get_post_meta($question->post_id,'_question_right_answer',true);
+                        if(!empty($correct_answer)){
+                            update_post_meta($question->post_id,'vibe_question_answer',$correct_answer);
+                        }
+                    break;
+
+                    case 'multi-line':
+                        update_post_meta($question->post_id,'vibe_question_type','largetext');
+                        $correct_answer = get_post_meta($question->post_id,'_question_right_answer',true);
+                        if(!empty($correct_answer)){
+                            update_post_meta($question->post_id,'vibe_question_answer',$correct_answer);
+                        }
+                    break;
                 }
             }
             update_post_meta($quiz_id,'vibe_quiz_questions',$quiz_questions);
