@@ -280,9 +280,10 @@ class WPLMS_SENSEI_INIT{
 
         $quiz_questions = array('ques'=>array(),'marks'=>array());
         if(!empty($questions)){
+            $t = 1;
             foreach($questions as $question){
                 $quiz_questions['ques'][] = $question->post_id;
-                $question_marks = get_post_meta($question->post_id,'_question_grade',ture);
+                $question_marks = get_post_meta($question->post_id,'_question_grade',true);
                 if(!empty($question_marks)){
                     $quiz_questions['marks'][] = $question_marks;
                 }
@@ -290,6 +291,15 @@ class WPLMS_SENSEI_INIT{
                 $question_type = wp_get_post_terms($question->post_id,'question-type');
                 switch($question_type){
                     case 'multiple-choice':
+                        $question_title = get_post_field('post_title',$question->post_id);
+                        $question_description = get_post_field('post_content',$question->post_id);
+
+                        $vibe_question = $question_title.'</br></br>'.$question_description;
+
+                        
+                        $post = array('ID' => $question->post_id,'post_content' => $vibe_question );
+                        wp_update_post($post,true);
+
                         $right_option = get_post_meta($question->post_id,'_question_right_answer',true);
                         $wrong_option = get_post_meta($question->post_id,'_question_wrong_answers',true);
                         if(!empty($right_option) && !empty($wrong_option)){
@@ -302,7 +312,12 @@ class WPLMS_SENSEI_INIT{
                                 update_post_meta($question->post_id,'vibe_question_answer',1);
                             }elseif($correct_answer > 1){
                                 update_post_meta($question->post_id,'vibe_question_type','multiple');
-
+                                $arr = array();
+                                for($j = 0; $j < $correct_answer; $j++){
+                                    $arr[$j] = $j+1;
+                                }
+                                $answer = implode(',',$arr);
+                                update_post_meta($question->post_id,'vibe_question_answer',$answer);
                             }
                         }
                         
@@ -314,8 +329,18 @@ class WPLMS_SENSEI_INIT{
 
                     case 'gap-fill':
                         update_post_meta($question->post_id,'vibe_question_type','fillblank');
+
+                        $question_title = get_post_field('post_title',$question->post_id);
+                        $question_description = get_post_field('post_content',$question->post_id);
+                        $vibe_question = $question_title.'</br></br>'.$question_description;
+
                         $fill_question = get_post_meta($question->post_id,'_question_right_answer',true);
                         if(!empty($fill_question){
+                            $x = preg_replace("/\|\|(.+)\|\|/", " [fillblank] ", $fill_question);
+                            $vibe_question .= '</br></br>'.$x;
+                            $post = array('ID' => $question->post_id,'post_content' => $vibe_question );
+                            wp_update_post($post,true);
+
                             preg_match("/\|\|(.+)\|\|/", $fill_question, $output_array);
                             if(!empty($output_array)){
                                 $correct_answer = $output_array[1];
@@ -329,6 +354,14 @@ class WPLMS_SENSEI_INIT{
 
                     case 'boolean':
                         update_post_meta($question->post_id,'vibe_question_type','truefalse');
+
+                        $question_title = get_post_field('post_title',$question->post_id);
+                        $question_description = get_post_field('post_content',$question->post_id);
+                        $vibe_question = $question_title.'</br></br>'.$question_description;
+
+                        $post = array('ID' => $question->post_id,'post_content' => $vibe_question );
+                        wp_update_post($post,true);
+
                         $correct_answer = get_post_meta($question->post_id,'_question_right_answer',true);
                         if(!empty($correct_answer)){
                             if($correct_answer == 'true'){
@@ -345,6 +378,14 @@ class WPLMS_SENSEI_INIT{
 
                     case 'single-line':
                         update_post_meta($question->post_id,'vibe_question_type','smalltext');
+
+                        $question_title = get_post_field('post_title',$question->post_id);
+                        $question_description = get_post_field('post_content',$question->post_id);
+                        $vibe_question = $question_title.'</br></br>'.$question_description;
+
+                        $post = array('ID' => $question->post_id,'post_content' => $vibe_question );
+                        wp_update_post($post,true);
+
                         $correct_answer = get_post_meta($question->post_id,'_question_right_answer',true);
                         if(!empty($correct_answer)){
                             update_post_meta($question->post_id,'vibe_question_answer',$correct_answer);
@@ -353,6 +394,14 @@ class WPLMS_SENSEI_INIT{
 
                     case 'multi-line':
                         update_post_meta($question->post_id,'vibe_question_type','largetext');
+
+                        $question_title = get_post_field('post_title',$question->post_id);
+                        $question_description = get_post_field('post_content',$question->post_id);
+                        $vibe_question = $question_title.'</br></br>'.$question_description;
+
+                        $post = array('ID' => $question->post_id,'post_content' => $vibe_question );
+                        wp_update_post($post,true);
+
                         $correct_answer = get_post_meta($question->post_id,'_question_right_answer',true);
                         if(!empty($correct_answer)){
                             update_post_meta($question->post_id,'vibe_question_answer',$correct_answer);
