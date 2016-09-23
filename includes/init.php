@@ -1,6 +1,6 @@
 <?php
 /**
- * Initialization functions for WP SENSEI MIGRATION
+ * Initialization functions for WPLMS SENSEI MIGRATION
  * @author      VibeThemes
  * @category    Admin
  * @package     Initialization
@@ -227,6 +227,7 @@ class WPLMS_SENSEI_INIT{
     function migrate_posts(){
         global $wpdb;
         $wpdb->query("UPDATE {$wpdb->posts} SET post_type = 'unit' WHERE post_type = 'lesson'");
+        $wpdb->query("UPDATE {$wpdb->term_taxonomy} SET taxonomy = 'course-cat' WHERE taxonomy = 'course-category'");
     }
 
     function revert_migrated_courses(){
@@ -251,6 +252,7 @@ class WPLMS_SENSEI_INIT{
     function revert_migrated_posts(){
         global $wpdb;
         $wpdb->query("UPDATE {$wpdb->posts} SET post_type = 'lesson' WHERE post_type = 'unit'");
+        $wpdb->query("UPDATE {$wpdb->term_taxonomy} SET taxonomy = 'course-category' WHERE taxonomy = 'course-cat'");
     }
 
     function migrate_course_settings($course_id){
