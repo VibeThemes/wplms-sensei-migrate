@@ -146,7 +146,7 @@ class WPLMS_SENSEI_INIT{
                                     var width = 100*1/json.length;
                                     var number = width;
                                     var loopArray = function(arr) {
-                                        wpcw_ajaxcall(arr[x],function(){
+                                        wpws_ajaxcall(arr[x],function(){
                                             x++;
                                             if(x < arr.length) {
                                                 loopArray(arr);   
@@ -157,7 +157,7 @@ class WPLMS_SENSEI_INIT{
                                     // start 'loop'
                                     loopArray(json);
 
-                                    function wpcw_ajaxcall(obj,callback) {
+                                    function wpws_ajaxcall(obj,callback) {
                                         
                                         $.ajax({
                                             type: "POST",
