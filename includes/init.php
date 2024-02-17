@@ -22,7 +22,12 @@ class WPLMS_SENSEI_INIT{
     }
 
     private function __construct(){
-    	if ( in_array( 'vibe-customtypes/vibe-customtypes.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) || (function_exists('is_plugin_active') && is_plugin_active( 'vibe-customtypes/vibe-customtypes.php')) && in_array( 'woothemes-sensei/woothemes-sensei.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) || (function_exists('is_plugin_active') && is_plugin_active( 'woothemes-sensei/woothemes-sensei.php'))) {
+    	if ( 
+            (in_array( 'vibe-customtypes/vibe-customtypes.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) || 
+            (function_exists('is_plugin_active') && is_plugin_active( 'vibe-customtypes/vibe-customtypes.php')) || 
+            (in_array( 'wplms_plugin/loader.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) || function_exists('is_plugin_active_for_network') && is_plugin_active_for_network( 'wplms_plugin/loader.php')) 
+            ) && 
+            (in_array( 'woothemes-sensei/woothemes-sensei.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) || (function_exists('is_plugin_active') && is_plugin_active( 'woothemes-sensei/woothemes-sensei.php'))) ) {
             add_action( 'admin_notices',array($this,'migration_notice' ));
             add_action('wp_ajax_migration_woo_sensei_courses',array($this,'migration_woo_sensei_courses'));
             add_action('wp_ajax_migration_woo_sensei_course_to_wplms',array($this,'migration_woo_sensei_course_to_wplms'));
